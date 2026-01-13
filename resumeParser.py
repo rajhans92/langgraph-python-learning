@@ -56,4 +56,8 @@ graph.add_edge(START, "ProfilePrase")
 graph.add_edge("ProfilePrase", "getResumeDetailAndRating")
 graph.add_conditional_edges("resumeChatBot", checkIfDone,["resumeChatBot", "generateSummary"])
 
+graph.add_edge("generateSummary", END)
 
+agent = graph.compile()
+
+agent.invoke({})
