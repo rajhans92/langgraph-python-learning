@@ -1,12 +1,12 @@
 from langchain.tools import tool
 from langchain.chat_models import init_chat_model
-from langchain.messages import AnyMessage, SystemMessage, ToolMessage
-from type_extensions import TypeDict, Annotated
+from langchain.messages import AnyMessage, SystemMessage, ToolMessage, HumanMessage
+from typing_extensions import TypedDict, Annotated
 from typing import Literal
 from langgraph.graph import StateGraph, START, END
 import operator
 
-chat_model = init_chat_model(model_name="gpt-4o", temperature=0)
+chat_model = init_chat_model("gpt-4.1", temperature=0)
 
 # Define tools
 @tool
@@ -42,9 +42,10 @@ def divide(a: int, b: int) -> float:
     return a / b
 
 tools = [multiply, add, divide]
-agent = chat_model.bind(tools)
+tools_by_name = {tool.name: tool for tool in tools}
+model_with_tools = chat_model.bind_tools(tools)
 
-class MassagesState(TypeDict):
+class MassagesState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
     llm_calls: int
 
@@ -78,7 +79,7 @@ def tool_node(state: dict):
     return {"messages": result}
 
 
-def should_continue(state: MessagesState) -> Literal["tool_node", END]:
+def should_continue(state: MassagesState) -> Literal["tool_node", END]:
     """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
 
     messages = state["messages"]
@@ -90,3 +91,26 @@ def should_continue(state: MessagesState) -> Literal["tool_node", END]:
 
     # Otherwise, we stop (reply to the user)
     return END
+
+agent_builder = StateGraph(MassagesState)
+
+# Add nodes
+agent_builder.add_node("llm_call", llm_call)
+agent_builder.add_node("tool_node", tool_node)
+
+# Add edges to connect nodes
+agent_builder.add_edge(START, "llm_call")
+agent_builder.add_conditional_edges(
+    "llm_call",
+    should_continue,
+    ["tool_node", END]
+)
+agent_builder.add_edge("tool_node", "llm_call")
+
+# Compile the agent
+agent = agent_builder.compile()
+
+messages = [HumanMessage(content="Add 3 and 4.")]
+messages = agent.invoke({"messages": messages})
+for m in messages["messages"]:
+    m.pretty_print()
