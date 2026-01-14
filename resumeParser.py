@@ -3,6 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import BaseMessage,SystemMessage, HumanMessage, ToolMessage, AIMessage
 from typing_extensions import TypedDict, Annotated, Literal
 import operator
+from pypdf import PdfReader
 from dotenv import load_dotenv
 load_dotenv() 
 
@@ -30,16 +31,34 @@ class ResumeParseState(TypedDict):
 
 
 def profilePrase(state: ResumeParseState):
-    pass
+        reader = PdfReader("./linkedinPdf/rupesh_profile.pdf")
+        resume_Praser = "\n".join(page.extract_text() for page in reader.pages )
+        # print(resume_Praser)
+        return {"resume_Praser": resume_Praser}
+
 
 def getResumeDetailAndRating(state: ResumeParseState):
-    pass
+        print("getResumeDetailAndRating ===> ")
+        return {
+            "resume_details": {
+                "role": "Software Engineer",
+                "seniority": "Mid-level",
+                "skills": ["Python", "Java", "SQL"],
+                "expereince": "5 years",
+                "stregths": ["Problem-solving", "Teamwork"],
+                "weaknesses": ["Public speaking"],
+                "achievements": ["Employee of the Month"],
+                "education": ["B.Sc. in Computer Science"],
+                "certifications": ["AWS Certified Developer"],
+                "projects": ["E-commerce Website", "Mobile App Development"]
+            }}
 
 def resumeChatBot(state: ResumeParseState):
-    pass
+        print("resumeChatBot ===> ",state)
 
 def generateSummary(state: ResumeParseState):
-    pass
+        print("generateSummary ===> ",state)
+
 
 def checkIfDone(state: ResumeParseState) -> Literal["resumeChatBot", "generateSummary"]:
     return "generateSummary"
@@ -54,6 +73,7 @@ graph.add_node("generateSummary", generateSummary)
 
 graph.add_edge(START, "ProfilePrase")
 graph.add_edge("ProfilePrase", "getResumeDetailAndRating")
+graph.add_edge("getResumeDetailAndRating", "resumeChatBot")
 graph.add_conditional_edges("resumeChatBot", checkIfDone,["resumeChatBot", "generateSummary"])
 
 graph.add_edge("generateSummary", END)

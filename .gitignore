@@ -106,3 +106,8 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+#sample pdf
+linkedinPdf/
+
+.DS_Store
