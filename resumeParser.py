@@ -1,4 +1,5 @@
 from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import BaseMessage,SystemMessage, HumanMessage, ToolMessage, AIMessage
 from typing_extensions import TypedDict, Annotated, Literal
@@ -9,11 +10,11 @@ load_dotenv()
 
 chatModel = init_chat_model("gpt-4o-mini")
 
-class resumeDetails(TypedDict):
+class ResumeDetails(TypedDict):
     role: str
     seniority: str
     skills: list[str]
-    expereince: str
+    experience: str
     stregths: list[str]
     weaknesses: list[str]
     achievements: list[str]
@@ -23,7 +24,7 @@ class resumeDetails(TypedDict):
 
 class ResumeParseState(TypedDict):
     resume_Praser: str
-    resume_details: resumeDetails
+    resume_details: ResumeDetails
     resumeRating: int
     llm_calls: int
     summary: str
@@ -31,33 +32,37 @@ class ResumeParseState(TypedDict):
 
 
 def profilePrase(state: ResumeParseState):
-        reader = PdfReader("./linkedinPdf/rupesh_profile.pdf")
-        resume_Praser = "\n".join(page.extract_text() for page in reader.pages )
-        # print(resume_Praser)
-        return {"resume_Praser": resume_Praser}
+        try:
+            reader = PdfReader("./linkedinPdf/rupesh_profile.pdf")
+            resume_Praser = "\n".join(page.extract_text() for page in reader.pages )
+            return {"resume_Praser": resume_Praser}
+        except Exception as e:
+            print("Error reading PDF:", e)
+            return {"resume_Praser": ""}
 
 
 def getResumeDetailAndRating(state: ResumeParseState):
-        print("getResumeDetailAndRating ===> ")
-        return {
-            "resume_details": {
-                "role": "Software Engineer",
-                "seniority": "Mid-level",
-                "skills": ["Python", "Java", "SQL"],
-                "expereince": "5 years",
-                "stregths": ["Problem-solving", "Teamwork"],
-                "weaknesses": ["Public speaking"],
-                "achievements": ["Employee of the Month"],
-                "education": ["B.Sc. in Computer Science"],
-                "certifications": ["AWS Certified Developer"],
-                "projects": ["E-commerce Website", "Mobile App Development"]
-            }}
+        try:
+            prompt = ChatPromptTemplate.from_template("""Use below content to extract resume details such as role, seniority, skills, experience, strengths, weaknesses, achievements, education, certifications, and projects.
+            Provide the details in a structured format.
+
+            Context:
+            {resume_Praser}
+            """)
+            model_with_structure = chatModel.with_structured_output(ResumeDetails)
+            chain = prompt | model_with_structure
+            resume_details = chain.invoke({"resume_Praser": state["resume_Praser"]})
+            print("Extracted Resume Details: ===> ", resume_details)
+            return {"resume_details": resume_details}
+        except Exception as e:
+            print(f"Error generating response: {str(e)}")
+            return {"resume_details": []}
 
 def resumeChatBot(state: ResumeParseState):
-        print("resumeChatBot ===> ",state)
+        print("resumeChatBot ===> ")
 
 def generateSummary(state: ResumeParseState):
-        print("generateSummary ===> ",state)
+        print("generateSummary ===> ")
 
 
 def checkIfDone(state: ResumeParseState) -> Literal["resumeChatBot", "generateSummary"]:
