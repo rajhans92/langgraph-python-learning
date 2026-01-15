@@ -63,13 +63,33 @@ class ResumeDetails(BaseModel):
         description="Overall profile rating on a scale from 1 to 10"
     )
 
+model_resume_parse_with_structure = chatModel.with_structured_output(ResumeDetails)
+
+class improvedResumeDetails(BaseModel):
+    suggestions: List[str] = Field(
+        description="List of improvement suggestions with reasons"
+    )
+
+    revisedProfile: ResumeDetails = Field(
+        description="The revised LinkedIn profile in structured JSON format"
+    )
+
+    keywordSuggestions: List[str] = Field(
+        description="Optional keyword suggestions for better search visibility"
+    )
+
+model_resume_improver_with_structure = chatModel.with_structured_output(improvedResumeDetails)
+
+
 class ResumeParseState(TypedDict):
     resume_Praser: str
     resume_details: ResumeDetails
-    resumeRating: int
-    llm_calls: int
     summary: str
     messages: Annotated[list[BaseMessage], operator.add]
+    improvement_suggestions: List[str]
+    revised_profile: ResumeDetails
+    keyword_suggestions: List[str]
+    is_exit: bool
 
 
 def profilePrase(state: ResumeParseState):
@@ -90,8 +110,7 @@ def getResumeDetailAndRating(state: ResumeParseState):
             Context:
             {resume_Praser}
             """)
-            model_with_structure = chatModel.with_structured_output(ResumeDetails)
-            chain = prompt | model_with_structure
+            chain = prompt | model_resume_parse_with_structure
             resume_details = chain.invoke({"resume_Praser": state["resume_Praser"]})
             return {"resume_details": resume_details}
         except Exception as e:
@@ -117,20 +136,64 @@ def resumeChatBot(state: ResumeParseState):
                         3. Optional keyword suggestions for better search visibility.
 
                         LinkedIn Profile Input (JSON):
-                        {json.dumps(state["resume_details"])}
+                        {json.dumps(state["resume_details"].model_dump(), indent=2)}
 
                         """
 
         if len(state["messages"]) == 0:
             state["messages"].append(SystemMessage(content=chatBotTemp))
 
+        user_input = input("Enter your message: ")
+        print("User said:", user_input)
+
+        if user_input.lower() in ["exit", "quit"]:
+            print("Exiting the chat.")
+            return {"is_exit": True}
+
+        state["messages"].append(HumanMessage(content=user_input))
+        
+        chatPrompt = ChatPromptTemplate.from_messages(state["messages"])
+        chatChain = chatPrompt | model_resume_improver_with_structure
+        
+        response = chatChain.invoke({})
+        improvement_suggestions = response.suggestions
+        revised_profile = response.revisedProfile
+        keyword_suggestions = response.keywordSuggestions
+        state["messages"].append(AIMessage(content=str(response.suggestions)))
+        print("AI Response:", response)
+        return {
+            "improvement_suggestions": improvement_suggestions,
+            "revised_profile": revised_profile,
+            "keyword_suggestions": keyword_suggestions,
+            "messages": state["messages"],
+            "is_exit": False
+        }
 
 def generateSummary(state: ResumeParseState):
-        print("generateSummary ===> ")
+        summary = "Resume Improvement Summary:\n\n"
+        summary += "Improvement Suggestions:\n"
+        for suggestion in state["improvement_suggestions"]:
+            summary += f"- {suggestion}\n"
+
+        summary += "\nRevised Profile:\n"
+        summary += json.dumps(state["revised_profile"].model_dump(), indent=2)
+
+        if state["keyword_suggestions"]:
+            summary += "\n\nKeyword Suggestions:\n"
+            for keyword in state["keyword_suggestions"]:
+                summary += f"- {keyword}\n"
+        return {"summary": summary}
 
 
 def checkIfDone(state: ResumeParseState) -> Literal["resumeChatBot", "generateSummary"]:
-    return "generateSummary"
+        print("====================================================================")
+        print("====================================================================")
+        print("====================================================================")
+        print("====================================================================")
+        if state["is_exit"]:
+            return "generateSummary"
+        else:
+            return "resumeChatBot"
 
 
 graph = StateGraph(ResumeParseState)
@@ -149,4 +212,11 @@ graph.add_edge("generateSummary", END)
 
 agent = graph.compile()
 
-agent.invoke({})
+result = agent.invoke({})
+
+print("====================================================================")
+print("====================================================================")
+print("====================================================================")
+print("====================================================================")
+
+print("Final Result Summary:\n", result["summary"])
