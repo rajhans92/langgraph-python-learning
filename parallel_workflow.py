@@ -11,22 +11,37 @@ class TravelState(TypedDict):
     summary_report: str
 
 def input_data(state: TravelState):
-    pass
+    return {
+        "city_name": "San Francisco"}
 
 def waether(state: TravelState):
-    pass
+    return {
+        "weather": "Sunny, 68°F"
+        }   
 
 def air_quality(state: TravelState):
-    pass
+    return {
+        "air_quality": "Good (AQI 42)"
+        }
 
 def traffic_conditions(state: TravelState):
-    pass
+    return {
+        "traffic_conditions": "Light traffic on main roads"
+        }
 
 def travel_advisories(state: TravelState):
-    pass
+    return {
+        "travel_advisories": "No major advisories"
+        }
 
 def summary_report(state: TravelState):
-    pass
+    return {
+        "summary_report": f"Travel Summary for {state['city_name']}:\n"
+                          f"- Weather: {state['weather']}\n"
+                          f"- Air Quality: {state['air_quality']}\n"
+                          f"- Traffic Conditions: {state['traffic_conditions']}\n"
+                          f"- Travel Advisories: {state['travel_advisories']}\n"
+        }
 
 graph = StateGraph(TravelState)
 
@@ -50,3 +65,5 @@ graph.add_edge("summary_report", END)
 
 agent = graph.compile() 
 result = agent.invoke({})
+
+print("Travel Summary Report:\n", result["summary_report"])
