@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from typing_extensions import TypedDict
+from langgraph.checkpoint.memory import InMemorySaver
 
 class State(TypedDict, total=False):
     analysis: str
@@ -51,6 +52,9 @@ graph.add_edge("improve_headline", "input_data")
 graph.add_edge("improve_experience", "input_data")
 graph.add_edge("validate", END)
 
-agent = graph.compile()
-result = agent.invoke({})
+checkpoint_saver = InMemorySaver()
+agent = graph.compile(checkpointer=checkpoint_saver)
+config = {"configurable":{"thread_id": "1"}}
+result = agent.invoke({},config)
 print("Final State:", result)
+print(list(agent.get_state(config)))
