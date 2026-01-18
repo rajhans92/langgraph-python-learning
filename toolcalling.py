@@ -29,6 +29,7 @@ tool_node = ToolNode(toolSet)
 
 
 def llmCall(state: CalcState):
+    # print("LLM Call with messages:", state['messages'])
     messages = model.invoke(state['messages'])
     return {
         "messages": [messages]
@@ -63,3 +64,5 @@ result = agent.invoke(initial_state)
 # print("Final Result:", result)
 
 
+for m in result["messages"]:
+    print(f"{m.type.upper()}: {m.content}")
